@@ -28,7 +28,7 @@ inline uint64 RawGet8(const void *Data)
 {
 #if defined(BIG_ENDIAN) || !defined(ALLOW_MISALIGNED)
   byte *D=(byte *)Data;
-  return INT32TO64(RawGet4(D+4),RawGet4(D));
+  return UINT32TO64(RawGet4(D+4),RawGet4(D));
 #else
   return *(uint64 *)Data;
 #endif

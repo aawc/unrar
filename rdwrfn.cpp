@@ -73,10 +73,10 @@ int ComprDataIO::UnpRead(byte *Addr,size_t Count)
     }
     else
     {
-      size_t SizeToRead=((int64)Count>UnpPackedSize) ? (size_t)UnpPackedSize:Count;
+      size_t SizeToRead=Count>UnpPackedSize ? (size_t)UnpPackedSize:Count;
       if (SizeToRead > 0)
       {
-        if (UnpVolume && Decryption && (int64)Count>UnpPackedSize)
+        if (UnpVolume && Decryption && Count>UnpPackedSize)
         {
           // We need aligned blocks for decryption and we want "Keep broken
           // files" to work efficiently with missing encrypted volumes.

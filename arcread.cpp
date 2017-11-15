@@ -85,7 +85,7 @@ size_t Archive::SearchRR()
 
 void Archive::UnexpEndArcMsg()
 {
-  int64 ArcSize=FileLength();
+  uint64 ArcSize=FileLength();
 
   // If block positions are equal to file size, this is not an error.
   // It can happen when we reached the end of older RAR 1.5 archive,
@@ -296,8 +296,8 @@ size_t Archive::ReadHeader15()
           // until we find the end of file marker in compressed data.
           hd->UnknownUnpSize=(LowUnpSize==0xffffffff);
         }
-        hd->PackSize=INT32TO64(HighPackSize,hd->DataSize);
-        hd->UnpSize=INT32TO64(HighUnpSize,LowUnpSize);
+        hd->PackSize=UINT32TO64(HighPackSize,hd->DataSize);
+        hd->UnpSize=UINT32TO64(HighUnpSize,LowUnpSize);
         if (hd->UnknownUnpSize)
           hd->UnpSize=INT64NDF;
 
@@ -351,7 +351,7 @@ size_t Archive::ReadHeader15()
               int64 CurPos=Tell();
               RecoveryPercent=ToPercent(RecoverySize,CurPos);
               // Round fractional percent exceeding .5 to upper value.
-              if (ToPercent(RecoverySize+CurPos/200,CurPos)>RecoveryPercent)
+              if ((int)ToPercent(RecoverySize+CurPos/200,CurPos)>RecoveryPercent)
                 RecoveryPercent++;
             }
           }
@@ -567,7 +567,6 @@ size_t Archive::ReadHeader50()
 #if defined(RAR_NOCRYPT)
     return 0;
 #else
-    RequestArcPassword();
 
     byte HeadersInitV[SIZE_INITV];
     if (Read(HeadersInitV,SIZE_INITV)!=SIZE_INITV)
@@ -576,15 +575,23 @@ size_t Archive::ReadHeader50()
       return 0;
     }
 
-    byte PswCheck[SIZE_PSWCHECK];
-    HeadersCrypt.SetCryptKeys(false,CRYPT_RAR50,&Cmd->Password,CryptHead.Salt,HeadersInitV,CryptHead.Lg2Count,NULL,PswCheck);
-    // Verify password validity.
-    if (CryptHead.UsePswCheck && memcmp(PswCheck,CryptHead.PswCheck,SIZE_PSWCHECK)!=0)
+    while (true) // Repeat the password prompt for wrong passwords.
     {
-      uiMsg(UIERROR_BADPSW,FileName);
-      FailedHeaderDecryption=true;
-      ErrHandler.SetErrorCode(RARX_BADPWD);
-      return 0;
+      RequestArcPassword();
+
+      byte PswCheck[SIZE_PSWCHECK];
+      HeadersCrypt.SetCryptKeys(false,CRYPT_RAR50,&Cmd->Password,CryptHead.Salt,HeadersInitV,CryptHead.Lg2Count,NULL,PswCheck);
+      // Verify password validity.
+      if (CryptHead.UsePswCheck && memcmp(PswCheck,CryptHead.PswCheck,SIZE_PSWCHECK)!=0)
+      {
+        // This message is used by Android GUI and Windows GUI and SFX to
+        // reset cached passwords. Update appropriate code if changed.
+        uiMsg(UIWAIT_BADPSW,FileName);
+
+        Cmd->Password.Clean();
+        continue;
+      }
+      break;
     }
 
     Raw.SetCrypt(&HeadersCrypt);
@@ -931,13 +938,16 @@ void Archive::ProcessExtra50(RawRead *Raw,size_t ExtraSize,BaseBlock *bb)
   Raw->SetPos(ExtraStart);
   while (Raw->DataLeft()>=2)
   {
-    int64 FieldSize=Raw->GetV();
-    if (FieldSize==0 || Raw->DataLeft()==0 || FieldSize>(int64)Raw->DataLeft())
+    int64 FieldSize=Raw->GetV(); // Needs to be signed for check below and can be negative.
+    if (FieldSize<=0 || Raw->DataLeft()==0 || FieldSize>(int64)Raw->DataLeft())
       break;
     size_t NextPos=size_t(Raw->GetPos()+FieldSize);
     uint64 FieldType=Raw->GetV();
 
     FieldSize=int64(NextPos-Raw->GetPos()); // Field size without size and type fields.
+
+    if (FieldSize<0) // FieldType longer than field itself.
+      break;
 
     if (bb->HeaderType==HEAD_MAIN)
     {
@@ -1136,7 +1146,7 @@ void Archive::ProcessExtra50(RawRead *Raw,size_t ExtraSize,BaseBlock *bb)
             // required. It did not hurt extraction, because UnRAR 5.21
             // and earlier ignored this field and set FieldSize as data left
             // in entire extra area. But now we set the correct field size
-            // and set FieldSize based on actual extra record size,
+            // and set FieldSize based on the actual extra record size,
             // so we need to adjust it for those older archives here.
             // FHEXTRA_SUBDATA in those archives always belongs to HEAD_SERVICE
             // and always is last in extra area. So since its size is by 1
@@ -1145,6 +1155,9 @@ void Archive::ProcessExtra50(RawRead *Raw,size_t ExtraSize,BaseBlock *bb)
             if (bb->HeaderType==HEAD_SERVICE && Raw->Size()-NextPos==1)
               FieldSize++;
 
+            // We cannot allocate too much memory here, because above
+            // we check FieldSize againt Raw size and we control that Raw size
+            // is sensible when reading headers.
             hd->SubData.Alloc((size_t)FieldSize);
             Raw->GetB(hd->SubData.Addr(0),(size_t)FieldSize);
           }

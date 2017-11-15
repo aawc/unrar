@@ -41,9 +41,11 @@ void ErrorHandler::CloseError(const wchar *FileName)
     uiMsg(UIERROR_FILECLOSE,FileName);
     SysErrMsg();
   }
-#if !defined(SILENT) || defined(RARDLL)
-  Exit(RARX_FATAL);
-#endif
+  // We must not call Exit and throw an exception here, because this function
+  // is called from File object destructor and can be invoked when stack
+  // unwinding while handling another exception. Throwing a new exception
+  // when stack unwinding is prohibited and terminates a program.
+  SetErrorCode(RARX_FATAL);
 }
 
 

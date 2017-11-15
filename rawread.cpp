@@ -108,7 +108,7 @@ uint RawRead::Get4()
 uint64 RawRead::Get8()
 {
   uint Low=Get4(),High=Get4();
-  return INT32TO64(High,Low);
+  return UINT32TO64(High,Low);
 }
 
 
