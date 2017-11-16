@@ -134,7 +134,7 @@ bool WideToCharMap(const wchar *Src,char *Dest,size_t DestSize,bool &Success)
       SrcPos++;
       continue;
     }
-    // For security reasons do not retore low ASCII codes, so mapping cannot
+    // For security reasons do not restore low ASCII codes, so mapping cannot
     // be used to hide control codes like path separators.
     if (uint(Src[SrcPos])>=MapAreaStart+0x80 && uint(Src[SrcPos])<MapAreaStart+0x100)
       Dest[DestPos++]=char(uint(Src[SrcPos++])-MapAreaStart);
@@ -298,7 +298,6 @@ size_t WideToUtfSize(const wchar *Src)
 }
 
 
-// Dest can be NULL if we only need to check validity of Src.
 bool UtfToWide(const char *Src,wchar *Dest,size_t DestSize)
 {
   bool Success=true;
@@ -347,40 +346,56 @@ bool UtfToWide(const char *Src,wchar *Dest,size_t DestSize)
             Success=false;
             break;
           }
-    if (Dest!=NULL && --dsize<0)
+    if (--dsize<0)
       break;
     if (d>0xffff)
     {
-      if (Dest!=NULL && --dsize<0)
+      if (--dsize<0)
         break;
       if (d>0x10ffff) // UTF-8 must end at 0x10ffff according to RFC 3629.
       {
         Success=false;
         continue;
       }
-      if (Dest!=NULL)
-        if (sizeof(*Dest)==2) // Use the surrogate pair.
-        {
-          *(Dest++)=((d-0x10000)>>10)+0xd800;
-          *(Dest++)=(d&0x3ff)+0xdc00;
-        }
-        else
-          *(Dest++)=d;
+      if (sizeof(*Dest)==2) // Use the surrogate pair.
+      {
+        *(Dest++)=((d-0x10000)>>10)+0xd800;
+        *(Dest++)=(d&0x3ff)+0xdc00;
+      }
+      else
+        *(Dest++)=d;
     }
     else
-      if (Dest!=NULL)
-        *(Dest++)=d;
+      *(Dest++)=d;
   }
-  if (Dest!=NULL)
-    *Dest=0;
+  *Dest=0;
   return Success;
 }
 
 
-// Source data can be both with and without UTF-8 BOM.
-bool IsTextUtf8(const char *Src)
+// For zero terminated strings.
+bool IsTextUtf8(const byte *Src)
 {
-  return UtfToWide(Src,NULL,0);
+  return IsTextUtf8(Src,strlen((const char *)Src));
+}
+
+
+// Source data can be both with and without UTF-8 BOM.
+bool IsTextUtf8(const byte *Src,size_t SrcSize)
+{
+  while (SrcSize-- > 0)
+  {
+    byte C=*(Src++);
+    int HighOne=0; // Number of leftmost '1' bits.
+    for (byte Mask=0x80;Mask!=0 && (C & Mask)!=0;Mask>>=1)
+      HighOne++;
+    if (HighOne==1 || HighOne>6)
+      return false;
+    while (--HighOne > 0)
+      if (SrcSize-- <= 0 || (*(Src++) & 0xc0)!=0x80)
+        return false;
+  }
+  return true;
 }
 
 

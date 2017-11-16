@@ -97,7 +97,7 @@ class File
     static void SetCloseFileTimeByName(const wchar *Name,RarTime *ftm,RarTime *fta);
     void GetOpenFileTime(RarTime *ft);
     bool IsOpened() {return hFile!=FILE_BAD_HANDLE;};
-    int64 FileLength();
+    uint64 FileLength();
     void SetHandleType(FILE_HANDLETYPE Type) {HandleType=Type;}
     FILE_HANDLETYPE GetHandleType() {return HandleType;}
     bool IsDevice();
@@ -105,7 +105,6 @@ class File
     FileHandle GetHandle() {return hFile;}
     void SetHandle(FileHandle Handle) {Close();hFile=Handle;}
     void SetIgnoreReadErrors(bool Mode) {IgnoreReadErrors=Mode;}
-    int64 Copy(File &Dest,int64 Length=INT64NDF);
     void SetAllowDelete(bool Allow) {AllowDelete=Allow;}
     void SetExceptions(bool Allow) {AllowExceptions=Allow;}
 #ifdef _WIN_ALL
@@ -121,6 +120,17 @@ class File
 #endif
     }
 #endif
+    static size_t CopyBufferSize()
+    {
+#ifdef _WIN_ALL
+      // USB flash performance is poor with 64 KB buffer, 256+ KB resolved it.
+      // For copying from HDD to same HDD the best performance was with 256 KB
+      // buffer in XP and with 1 MB buffer in Win10.
+      return WinNT()==WNT_WXP ? 0x40000:0x100000;
+#else
+      return 0x100000;
+#endif
+    }
 };
 
 #endif

@@ -149,7 +149,7 @@ EXTRACT_ARC_CODE CmdExtract::ExtractArchive()
   }
 #endif
 
-  int64 VolumeSetSize=0; // Total size of volumes after the current volume.
+  uint64 VolumeSetSize=0; // Total size of volumes after the current volume.
 
   if (Arc.Volume)
   {
@@ -233,8 +233,8 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
   // here, because this function is called directly in unrar.dll, so we fix
   // bad parameters passed to dll. Also we want to see real negative sizes
   // in the listing of corrupt archive.
-  if (Arc.FileHead.PackSize<0)
-    Arc.FileHead.PackSize=0;
+//  if (Arc.FileHead.PackSize<0)
+//    Arc.FileHead.PackSize=0;
   if (Arc.FileHead.UnpSize<0)
     Arc.FileHead.UnpSize=0;
 
@@ -245,8 +245,8 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
 #ifdef NOVOLUME
       return false;
 #else
-      // Supposing we unpack an old RAR volume without end of archive record
-      // and last file is not split between volumes.
+      // Supposing we unpack an old RAR volume without the end of archive
+      // record and last file is not split between volumes.
       if (!MergeArchive(Arc,&DataIO,false,Command))
       {
         ErrHandler.SetErrorCode(RARX_WARNING);
@@ -427,7 +427,7 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
       return !Arc.Solid; // Can try extracting next file only in non-solid archive.
     }
 
-    while (true) // Repeat password prompt in case of wrong password here.
+    while (true) // Repeat the password prompt for wrong passwords.
     {
       if (Arc.FileHead.Encrypted)
       {
@@ -479,6 +479,8 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
           memcmp(Arc.FileHead.PswCheck,PswCheck,SIZE_PSWCHECK)!=0 &&
           !Arc.BrokenHeader)
       {
+        // This message is used by Android GUI and Windows GUI and SFX to
+        // reset cached passwords. Update appropriate code if changed.
         uiMsg(UIWAIT_BADPSW,ArcFileName);
 
         if (!PasswordAll) // If entered manually and not through -p<pwd>.
@@ -779,10 +781,7 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
 
 void CmdExtract::UnstoreFile(ComprDataIO &DataIO,int64 DestUnpSize)
 {
-  // 512 KB and larger buffer reported to reduce performance on old XP
-  // computers with WDC WD2000JD HDD. According to test made by user
-  // 256 KB buffer is optimal.
-  Array<byte> Buffer(0x40000);
+  Array<byte> Buffer(File::CopyBufferSize());
   while (1)
   {
     uint Code=DataIO.UnpRead(&Buffer[0],Buffer.Size());
@@ -812,7 +811,6 @@ bool CmdExtract::ExtractFileCopy(File &New,wchar *ArcName,wchar *NameNew,wchar *
   }
 
   Array<char> Buffer(0x100000);
-  int64 CopySize=0;
 
   while (true)
   {
@@ -821,7 +819,6 @@ bool CmdExtract::ExtractFileCopy(File &New,wchar *ArcName,wchar *NameNew,wchar *
     if (ReadSize==0)
       break;
     New.Write(&Buffer[0],ReadSize);
-    CopySize+=ReadSize;
   }
 
   return true;
