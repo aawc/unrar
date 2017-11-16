@@ -781,9 +781,7 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
 
 void CmdExtract::UnstoreFile(ComprDataIO &DataIO,int64 DestUnpSize)
 {
-  // When extracting from HDD to same HDD we get the best performance
-  // with 256 KB buffer in XP and with 1 MB buffer in Win10.
-  Array<byte> Buffer(WinNT()==WNT_WXP ? 0x40000:0x100000);
+  Array<byte> Buffer(File::CopyBufferSize());
   while (1)
   {
     uint Code=DataIO.UnpRead(&Buffer[0],Buffer.Size());

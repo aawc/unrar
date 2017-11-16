@@ -120,6 +120,17 @@ class File
 #endif
     }
 #endif
+    static size_t CopyBufferSize()
+    {
+#ifdef _WIN_ALL
+      // USB flash performance is poor with 64 KB buffer, 256+ KB resolved it.
+      // For copying from HDD to same HDD the best performance was with 256 KB
+      // buffer in XP and with 1 MB buffer in Win10.
+      return WinNT()==WNT_WXP ? 0x40000:0x100000;
+#else
+      return 0x100000;
+#endif
+    }
 };
 
 #endif
