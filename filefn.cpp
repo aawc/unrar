@@ -152,7 +152,7 @@ int64 GetFreeDisk(const wchar *Name)
   uiUserFree.u.LowPart=uiUserFree.u.HighPart=0;
   if (GetDiskFreeSpaceEx(*Root!=0 ? Root:NULL,&uiUserFree,&uiTotalSize,&uiTotalFree) &&
       uiUserFree.u.HighPart<=uiTotalFree.u.HighPart)
-    return UINT32TO64(uiUserFree.u.HighPart,uiUserFree.u.LowPart);
+    return INT32TO64(uiUserFree.u.HighPart,uiUserFree.u.LowPart);
   return 0;
 #elif defined(_UNIX)
   wchar Root[NM];

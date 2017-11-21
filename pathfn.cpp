@@ -260,9 +260,9 @@ bool EnumConfigPaths(uint Number,wchar *Path,size_t MaxSize,bool Create)
   {
     char *EnvStr=getenv("HOME");
     if (EnvStr!=NULL)
-      GetWideName(EnvStr,NULL,Path,MaxSize);
+      CharToWide(EnvStr,Path,MaxSize);
     else
-      wcsncpyz(Path, ConfPath[0], MaxSize);
+      wcsncpyz(Path,ConfPath[0],MaxSize);
     return true;
   }
   Number--;

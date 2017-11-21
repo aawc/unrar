@@ -36,7 +36,25 @@ bool WideToChar(const wchar *Src,char *Dest,size_t DestSize)
     mbstate_t ps; // Use thread safe external state based functions.
     memset (&ps, 0, sizeof(ps));
     const wchar *SrcParam=Src; // wcsrtombs can change the pointer.
+
+    // Some implementations of wcsrtombs can cause memory analyzing tools
+    // like valgrind to report uninitialized data access. It happens because
+    // internally these implementations call SSE4 based wcslen function,
+    // which reads 16 bytes at once including those beyond of trailing 0.
     size_t ResultingSize=wcsrtombs(Dest,&SrcParam,DestSize,&ps);
+
+    if (ResultingSize==(size_t)-1 && errno==EILSEQ)
+    {
+      // Aborted on inconvertible character not zero terminating the result.
+      // EILSEQ helps to distinguish it from small output buffer abort.
+      // We want to convert as much as we can, so we clean the output buffer
+      // and repeat conversion.
+      memset (&ps, 0, sizeof(ps));
+      SrcParam=Src; // wcsrtombs can change the pointer.
+      memset(Dest,0,DestSize);
+      ResultingSize=wcsrtombs(Dest,&SrcParam,DestSize,&ps);
+    }
+
     if (ResultingSize==(size_t)-1)
       RetCode=false;
     if (ResultingSize==0 && *Src!=0)
@@ -122,13 +140,8 @@ bool WideToCharMap(const wchar *Src,char *Dest,size_t DestSize,bool &Success)
 
   Success=true;
   uint SrcPos=0,DestPos=0;
-  while (DestPos<DestSize-MB_CUR_MAX)
+  while (Src[SrcPos]!=0 && DestPos<DestSize-MB_CUR_MAX)
   {
-    if (Src[SrcPos]==0)
-    {
-      Dest[DestPos]=0;
-      break;
-    }
     if (uint(Src[SrcPos])==MappedStringMark)
     {
       SrcPos++;
@@ -143,13 +156,17 @@ bool WideToCharMap(const wchar *Src,char *Dest,size_t DestSize,bool &Success)
       mbstate_t ps;
       memset(&ps,0,sizeof(ps));
       if (wcrtomb(Dest+DestPos,Src[SrcPos],&ps)==-1)
+      {
+        Dest[DestPos]='_';
         Success=false;
+      }
       SrcPos++;
       memset(&ps,0,sizeof(ps));
       int Length=mbrlen(Dest+DestPos,MB_CUR_MAX,&ps);
       DestPos+=Max(Length,1);
     }
   }
+  Dest[Min(DestPos,DestSize-1)]=0;
   return true;
 }
 #endif
@@ -170,7 +187,6 @@ void CharToWideMap(const char *Src,wchar *Dest,size_t DestSize,bool &Success)
   {
     if (Src[SrcPos]==0)
     {
-      Dest[DestPos]=0;
       Success=true;
       break;
     }
@@ -202,6 +218,7 @@ void CharToWideMap(const char *Src,wchar *Dest,size_t DestSize,bool &Success)
       DestPos++;
     }
   }
+  Dest[Min(DestPos,DestSize-1)]=0;
 }
 #endif
 

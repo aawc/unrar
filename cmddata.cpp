@@ -1362,7 +1362,7 @@ uint CommandData::GetExclAttr(const wchar *Str)
 bool CommandData::CheckWinSize()
 {
   // Define 0x100000000 as macro to avoid troubles with older compilers.
-  const uint64 MaxDictSize=UINT32TO64(1,0);
+  const uint64 MaxDictSize=INT32TO64(1,0);
   // Limit the dictionary size to 4 GB.
   for (uint64 I=0x10000;I<=MaxDictSize;I*=2)
     if (WinSize==I)

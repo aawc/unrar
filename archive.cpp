@@ -193,7 +193,7 @@ bool Archive::IsArchive(bool EnableBroken)
 
   bool HeadersLeft; // Any headers left to read.
   // Skip the archive encryption header if any and read the main header.
-  while (HeadersLeft=(ReadHeader()!=0))
+  while ((HeadersLeft=(ReadHeader()!=0))==true) // Additional parentheses to silence Clang.
   {
     SeekToNext();
 

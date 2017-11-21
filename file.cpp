@@ -511,7 +511,7 @@ int64 File::Tell()
       ErrHandler.SeekError(FileName);
     else
       return -1;
-  return UINT32TO64(HighDist,LowDist);
+  return INT32TO64(HighDist,LowDist);
 #else
 #ifdef FILE_USE_OPEN
   return lseek(hFile,0,SEEK_CUR);
@@ -668,12 +668,11 @@ void File::GetOpenFileTime(RarTime *ft)
 }
 
 
-uint64 File::FileLength()
+int64 File::FileLength()
 {
   SaveFilePos SavePos(*this);
   Seek(0,SEEK_END);
-  int64 Pos=Tell();
-  return Pos<0 ? 0 : Pos;
+  return Tell();
 }
 
 
@@ -690,3 +689,41 @@ bool File::IsDevice()
 }
 
 
+#ifndef SFX_MODULE
+int64 File::Copy(File &Dest,int64 Length)
+{
+  Array<byte> Buffer(File::CopyBufferSize());
+  int64 CopySize=0;
+  bool CopyAll=(Length==INT64NDF);
+
+  while (CopyAll || Length>0)
+  {
+    Wait();
+    size_t SizeToRead=(!CopyAll && Length<(int64)Buffer.Size()) ? (size_t)Length:Buffer.Size();
+    byte *Buf=&Buffer[0];
+    int ReadSize=Read(Buf,SizeToRead);
+    if (ReadSize==0)
+      break;
+    size_t WriteSize=ReadSize;
+#ifdef _WIN_ALL
+    // For FAT32 USB flash drives in Windows if first write is 4 KB or more,
+    // write caching is disabled and "write through" is enabled, resulting
+    // in bad performance, especially for many small files. It happens when
+    // we create SFX archive on USB drive, because SFX module is written first.
+    // So we split the first write to small 1 KB followed by rest of data.
+    if (CopySize==0 && WriteSize>=4096)
+    {
+      const size_t FirstWrite=1024;
+      Dest.Write(Buf,FirstWrite);
+      Buf+=FirstWrite;
+      WriteSize-=FirstWrite;
+    }
+#endif
+    Dest.Write(Buf,WriteSize);
+    CopySize+=ReadSize;
+    if (!CopyAll)
+      Length-=ReadSize;
+  }
+  return CopySize;
+}
+#endif

@@ -97,7 +97,7 @@ class File
     static void SetCloseFileTimeByName(const wchar *Name,RarTime *ftm,RarTime *fta);
     void GetOpenFileTime(RarTime *ft);
     bool IsOpened() {return hFile!=FILE_BAD_HANDLE;};
-    uint64 FileLength();
+    int64 FileLength();
     void SetHandleType(FILE_HANDLETYPE Type) {HandleType=Type;}
     FILE_HANDLETYPE GetHandleType() {return HandleType;}
     bool IsDevice();
@@ -105,6 +105,7 @@ class File
     FileHandle GetHandle() {return hFile;}
     void SetHandle(FileHandle Handle) {Close();hFile=Handle;}
     void SetIgnoreReadErrors(bool Mode) {IgnoreReadErrors=Mode;}
+    int64 Copy(File &Dest,int64 Length=INT64NDF);
     void SetAllowDelete(bool Allow) {AllowDelete=Allow;}
     void SetExceptions(bool Allow) {AllowExceptions=Allow;}
 #ifdef _WIN_ALL

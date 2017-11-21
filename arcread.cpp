@@ -26,11 +26,18 @@ size_t Archive::ReadHeader()
       break;
   }
 
+  // It is important to check ReadSize>0 here, because it is normal
+  // for RAR2 and RAR3 archives without end of archive block to have
+  // NextBlockPos==CurBlockPos after the end of archive has reached.
   if (ReadSize>0 && NextBlockPos<=CurBlockPos)
   {
     BrokenHeaderMsg();
-    return 0;
+    ReadSize=0;
   }
+
+  if (ReadSize==0)
+    CurHeaderType=HEAD_UNKNOWN;
+
   return ReadSize;
 }
 
@@ -85,7 +92,7 @@ size_t Archive::SearchRR()
 
 void Archive::UnexpEndArcMsg()
 {
-  uint64 ArcSize=FileLength();
+  int64 ArcSize=FileLength();
 
   // If block positions are equal to file size, this is not an error.
   // It can happen when we reached the end of older RAR 1.5 archive,
@@ -110,6 +117,17 @@ void Archive::UnkEncVerMsg(const wchar *Name)
 {
   uiMsg(UIERROR_UNKNOWNENCMETHOD,FileName,Name);
   ErrHandler.SetErrorCode(RARX_WARNING);
+}
+
+
+// Return f in case of signed integer overflow or negative parameters
+// or v1+v2 otherwise. We use it for file offsets, which are signed
+// for compatibility with off_t in POSIX file functions and third party code.
+// Signed integer overflow is the undefined behavior according to
+// C++ standard and it causes fuzzers to complain.
+inline int64 SafeAdd(int64 v1,int64 v2,int64 f)
+{
+  return v1>=0 && v2>=0 && v1<=MAX_INT64-v2 ? v1+v2 : f;
 }
 
 
@@ -296,8 +314,8 @@ size_t Archive::ReadHeader15()
           // until we find the end of file marker in compressed data.
           hd->UnknownUnpSize=(LowUnpSize==0xffffffff);
         }
-        hd->PackSize=UINT32TO64(HighPackSize,hd->DataSize);
-        hd->UnpSize=UINT32TO64(HighUnpSize,LowUnpSize);
+        hd->PackSize=INT32TO64(HighPackSize,hd->DataSize);
+        hd->UnpSize=INT32TO64(HighUnpSize,LowUnpSize);
         if (hd->UnknownUnpSize)
           hd->UnpSize=INT64NDF;
 
@@ -351,7 +369,7 @@ size_t Archive::ReadHeader15()
               int64 CurPos=Tell();
               RecoveryPercent=ToPercent(RecoverySize,CurPos);
               // Round fractional percent exceeding .5 to upper value.
-              if ((int)ToPercent(RecoverySize+CurPos/200,CurPos)>RecoveryPercent)
+              if (ToPercent(RecoverySize+CurPos/200,CurPos)>RecoveryPercent)
                 RecoveryPercent++;
             }
           }
@@ -397,7 +415,9 @@ size_t Archive::ReadHeader15()
             CurTime->SetLocal(&rlt);
           }
         }
-        NextBlockPos+=hd->PackSize;
+        // Set to 0 in case of overflow, so end of ReadHeader cares about it.
+        NextBlockPos=SafeAdd(NextBlockPos,hd->PackSize,0);
+
         bool CRCProcessedOnly=hd->CommentInHeader;
         ushort HeaderCRC=Raw.GetCRC15(CRCProcessedOnly);
         if (hd->HeadCRC!=HeaderCRC)
@@ -546,12 +566,6 @@ size_t Archive::ReadHeader15()
     }
   }
 
-  if (NextBlockPos<=CurBlockPos)
-  {
-    BrokenHeaderMsg();
-    return 0;
-  }
-
   return Raw.Size();
 }
 
@@ -677,7 +691,9 @@ size_t Archive::ReadHeader50()
   if ((ShortBlock.Flags & HFL_DATA)!=0)
     DataSize=Raw.GetV();
 
-  NextBlockPos=CurBlockPos+FullHeaderSize(ShortBlock.HeadSize)+DataSize;
+  NextBlockPos=CurBlockPos+FullHeaderSize(ShortBlock.HeadSize);
+  // Set to 0 in case of overflow, so end of ReadHeader cares about it.
+  NextBlockPos=SafeAdd(NextBlockPos,DataSize,0);
 
   switch(ShortBlock.HeaderType)
   {
@@ -875,11 +891,6 @@ size_t Archive::ReadHeader50()
       break;
   }
 
-  if (NextBlockPos<=CurBlockPos)
-  {
-    BrokenHeaderMsg();
-    return 0;
-  }
   return Raw.Size();
 }
 
@@ -946,7 +957,7 @@ void Archive::ProcessExtra50(RawRead *Raw,size_t ExtraSize,BaseBlock *bb)
 
     FieldSize=int64(NextPos-Raw->GetPos()); // Field size without size and type fields.
 
-    if (FieldSize<0) // FieldType longer than field itself.
+    if (FieldSize<0) // FieldType is longer than expected extra field size.
       break;
 
     if (bb->HeaderType==HEAD_MAIN)
@@ -1216,6 +1227,9 @@ size_t Archive::ReadHeader14()
 
     FileHead.PackSize=FileHead.DataSize;
     FileHead.WinSize=0x10000;
+
+    FileHead.HostOS=HOST_MSDOS;
+    FileHead.HSType=HSYS_WINDOWS;
 
     FileHead.mtime.SetDos(FileTime);
 
