@@ -25,9 +25,9 @@ void RarTime::GetLocal(RarLocalTime *lt)
     // Correct precision loss (low 4 decimal digits) in FileTimeToSystemTime.
     FILETIME rft;
     SystemTimeToFileTime(&st1,&rft);
-    uint64 Corrected=UINT32TO64(ft.dwHighDateTime,ft.dwLowDateTime)-
-                     UINT32TO64(rft.dwHighDateTime,rft.dwLowDateTime)+
-                     UINT32TO64(lft.dwHighDateTime,lft.dwLowDateTime);
+    uint64 Corrected=INT32TO64(ft.dwHighDateTime,ft.dwLowDateTime)-
+                     INT32TO64(rft.dwHighDateTime,rft.dwLowDateTime)+
+                     INT32TO64(lft.dwHighDateTime,lft.dwLowDateTime);
     lft.dwLowDateTime=(DWORD)Corrected;
     lft.dwHighDateTime=(DWORD)(Corrected>>32);
   }
@@ -100,9 +100,9 @@ void RarTime::SetLocal(RarLocalTime *lt)
       // Correct precision loss (low 4 decimal digits) in FileTimeToSystemTime.
       FILETIME rft;
       SystemTimeToFileTime(&st2,&rft);
-      uint64 Corrected=UINT32TO64(lft.dwHighDateTime,lft.dwLowDateTime)-
-                       UINT32TO64(rft.dwHighDateTime,rft.dwLowDateTime)+
-                       UINT32TO64(ft.dwHighDateTime,ft.dwLowDateTime);
+      uint64 Corrected=INT32TO64(lft.dwHighDateTime,lft.dwLowDateTime)-
+                       INT32TO64(rft.dwHighDateTime,rft.dwLowDateTime)+
+                       INT32TO64(ft.dwHighDateTime,ft.dwLowDateTime);
       ft.dwLowDateTime=(DWORD)Corrected;
       ft.dwHighDateTime=(DWORD)(Corrected>>32);
     }
@@ -184,7 +184,7 @@ void RarTime::SetUnix(time_t ut)
 uint64 RarTime::GetUnixNS()
 {
   // 11644473600000000000 - number of ns between 01-01-1601 and 01-01-1970.
-  uint64 ushift=UINT32TO64(0xA1997B0B,0x4C6A0000);
+  uint64 ushift=INT32TO64(0xA1997B0B,0x4C6A0000);
   return itime*(1000000000/TICKS_PER_SECOND)-ushift;
 }
 
@@ -193,7 +193,7 @@ uint64 RarTime::GetUnixNS()
 void RarTime::SetUnixNS(uint64 ns)
 {
   // 11644473600000000000 - number of ns between 01-01-1601 and 01-01-1970.
-  uint64 ushift=UINT32TO64(0xA1997B0B,0x4C6A0000);
+  uint64 ushift=INT32TO64(0xA1997B0B,0x4C6A0000);
   itime=(ns+ushift)/(1000000000/TICKS_PER_SECOND);
 }
 

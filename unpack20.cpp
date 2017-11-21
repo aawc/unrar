@@ -248,7 +248,7 @@ bool Unpack::ReadTables20()
     MakeDecodeTables(&Table[NC20],&BlockTables.DD,DC20);
     MakeDecodeTables(&Table[NC20+DC20],&BlockTables.RD,RC20);
   }
-  memcpy(UnpOldTable20,Table,sizeof(UnpOldTable20));
+  memcpy(UnpOldTable20,Table,TableSize);
   return true;
 }
 

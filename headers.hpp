@@ -191,9 +191,9 @@ struct FileHeader:BlockHeader
   RarTime ctime;
   RarTime atime;
 
-  uint64 PackSize;
-  uint64 UnpSize;
-  uint64 MaxSize; // Reserve size bytes for vint of this size.
+  int64 PackSize;
+  int64 UnpSize;
+  int64 MaxSize; // Reserve size bytes for vint of this size.
 
   HashValue FileHash;
 

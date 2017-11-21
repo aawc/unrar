@@ -27,11 +27,12 @@ class ComprDataIO
     size_t UnpWrSize;
     byte *UnpWrAddr;
 
-    uint64 UnpPackedSize;
+    int64 UnpPackedSize;
 
     bool ShowProgress;
     bool TestMode;
     bool SkipUnpCRC;
+    bool NoFileHeader;
 
     File *SrcFile;
     File *DestFile;
@@ -59,9 +60,10 @@ class ComprDataIO
     void UnpWrite(byte *Addr,size_t Count);
     void EnableShowProgress(bool Show) {ShowProgress=Show;}
     void GetUnpackedData(byte **Data,size_t *Size);
-    void SetPackedSizeToRead(uint64 Size) {UnpPackedSize=Size;}
+    void SetPackedSizeToRead(int64 Size) {UnpPackedSize=Size;}
     void SetTestMode(bool Mode) {TestMode=Mode;}
     void SetSkipUnpCRC(bool Skip) {SkipUnpCRC=Skip;}
+    void SetNoFileHeader(bool Mode) {NoFileHeader=Mode;}
     void SetFiles(File *SrcFile,File *DestFile);
     void SetCommand(CmdAdd *Cmd) {Command=Cmd;}
     void SetSubHeader(FileHeader *hd,int64 *Pos) {SubHead=hd;SubHeadPos=Pos;}
@@ -77,7 +79,7 @@ class ComprDataIO
     bool UnpVolume;
     bool NextVolumeMissing;
     int64 UnpArcSize;
-    uint64 CurPackRead,CurPackWrite,CurUnpRead,CurUnpWrite;
+    int64 CurPackRead,CurPackWrite,CurUnpRead,CurUnpWrite;
 
 
     // Size of already processed archives.

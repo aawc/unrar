@@ -19,6 +19,7 @@ void ComprDataIO::Init()
   ShowProgress=true;
   TestMode=false;
   SkipUnpCRC=false;
+  NoFileHeader=false;
   PackVolume=false;
   UnpVolume=false;
   NextVolumeMissing=false;
@@ -73,10 +74,10 @@ int ComprDataIO::UnpRead(byte *Addr,size_t Count)
     }
     else
     {
-      size_t SizeToRead=Count>UnpPackedSize ? (size_t)UnpPackedSize:Count;
+      size_t SizeToRead=((int64)Count>UnpPackedSize) ? (size_t)UnpPackedSize:Count;
       if (SizeToRead > 0)
       {
-        if (UnpVolume && Decryption && Count>UnpPackedSize)
+        if (UnpVolume && Decryption && (int64)Count>UnpPackedSize)
         {
           // We need aligned blocks for decryption and we want "Keep broken
           // files" to work efficiently with missing encrypted volumes.
@@ -95,7 +96,7 @@ int ComprDataIO::UnpRead(byte *Addr,size_t Count)
           return -1;
         ReadSize=SrcFile->Read(ReadAddr,SizeToRead);
         FileHeader *hd=SubHead!=NULL ? SubHead:&SrcArc->FileHead;
-        if (hd->SplitAfter)
+        if (!NoFileHeader && hd->SplitAfter)
           PackedDataHash.Update(ReadAddr,ReadSize);
       }
     }

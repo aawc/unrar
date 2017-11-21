@@ -139,6 +139,8 @@ bool RecVolumes5::Restore(RAROptions *Cmd,const wchar *Name,bool Silent)
   wcsncpyz(ArcName,Name,ASIZE(ArcName));
 
   wchar *Num=GetVolNumPart(ArcName);
+  if (Num==ArcName)
+    return false; // Number part is missing in the name.
   while (Num>ArcName && IsDigit(*(Num-1)))
     Num--;
   wcsncpyz(Num,L"*.*",ASIZE(ArcName)-(Num-ArcName));

@@ -16,17 +16,20 @@ typedef wchar_t          wchar;  // Unicode character
 #define GET_SHORT16(x) (sizeof(ushort)==2 ? (ushort)(x):((x)&0xffff))
 
 // Make 64 bit integer from two 32 bit.
-#define UINT32TO64(high,low) ((((uint64)(high))<<32)+((uint64)low))
+#define INT32TO64(high,low) ((((uint64)(high))<<32)+((uint64)low))
+
+// Maximum int64 value.
+#define MAX_INT64 int64(INT32TO64(0x7fffffff,0xffffffff))
 
 // Special int64 value, large enough to never be found in real life.
 // We use it in situations, when we need to indicate that parameter 
 // is not defined and probably should be calculated inside of function.
 // Lower part is intentionally 0x7fffffff, not 0xffffffff, to make it 
 // compatible with 32 bit int64.
-#define INT64NDF UINT32TO64(0x7fffffff,0x7fffffff)
+#define INT64NDF INT32TO64(0x7fffffff,0x7fffffff)
 
 // Maximum uint64 value.
-#define MAX_UINT64 UINT32TO64(0xffffffff,0xffffffff)
+#define MAX_UINT64 INT32TO64(0xffffffff,0xffffffff)
 #define UINT64NDF MAX_UINT64
 
 #endif

@@ -8,7 +8,7 @@ static void ListNewSubHeader(CommandData *Cmd,Archive &Arc);
 
 void ListArchive(CommandData *Cmd)
 {
-  uint64 SumPackSize=0,SumUnpSize=0;
+  int64 SumPackSize=0,SumUnpSize=0;
   uint ArcCount=0,SumFileCount=0;
   bool Technical=(Cmd->Command[1]=='T');
   bool ShowService=Technical && Cmd->Command[2]=='A';
@@ -30,7 +30,7 @@ void ListArchive(CommandData *Cmd)
     bool FileMatched=true;
     while (1)
     {
-      uint64 TotalPackSize=0,TotalUnpSize=0;
+      int64 TotalPackSize=0,TotalUnpSize=0;
       uint FileCount=0;
       if (Arc.IsArchive(true))
       {
@@ -125,7 +125,7 @@ void ListArchive(CommandData *Cmd)
             if (Verbose)
             {
               mprintf(L"\n----------- ---------  -------- ----- ---------- -----  --------  ----");
-              mprintf(L"\n%21ls %9ls %3u%%  %-27ls %u",UnpSizeText,
+              mprintf(L"\n%21ls %9ls %3d%%  %-27ls %u",UnpSizeText,
                       PackSizeText,ToPercentUnlim(TotalPackSize,TotalUnpSize),
                       VolNumText,FileCount);
             }
@@ -174,7 +174,7 @@ void ListArchive(CommandData *Cmd)
     itoa(SumPackSize,PackSizeText,ASIZE(PackSizeText));
 
     if (Verbose)
-      mprintf(L"%21ls %9ls %3u%% %28ls %u",UnpSizeText,PackSizeText,
+      mprintf(L"%21ls %9ls %3d%% %28ls %u",UnpSizeText,PackSizeText,
               ToPercentUnlim(SumPackSize,SumUnpSize),L"",SumFileCount);
     else
       mprintf(L"%21ls %18s %lu",UnpSizeText,L"",SumFileCount);
@@ -237,7 +237,7 @@ void ListFileHeader(Archive &Arc,FileHeader &hd,bool &TitleShown,bool Verbose,bo
       if (hd.SplitAfter)
         wcscpy(RatioStr,L"-->");
       else
-        swprintf(RatioStr,ASIZE(RatioStr),L"%u%%",ToPercentUnlim(hd.PackSize,hd.UnpSize));
+        swprintf(RatioStr,ASIZE(RatioStr),L"%d%%",ToPercentUnlim(hd.PackSize,hd.UnpSize));
 
   wchar DateStr[50];
   hd.mtime.GetText(DateStr,ASIZE(DateStr),Technical);
@@ -286,9 +286,9 @@ void ListFileHeader(Archive &Arc,FileHeader &hd,bool &TitleShown,bool Verbose,bo
           }
           else
           {
-            size_t SizeToRead=(size_t)Min(hd.PackSize,ASIZE(LinkTargetA)-1);
-            size_t DataSize=(size_t)Arc.Read(LinkTargetA,SizeToRead);
-            LinkTargetA[Min(DataSize,ASIZE(LinkTargetA)-1)]=0;
+            int DataSize=(int)Min(hd.PackSize,ASIZE(LinkTargetA)-1);
+            Arc.Read(LinkTargetA,DataSize);
+            LinkTargetA[DataSize > 0 ? DataSize : 0] = 0;
           }
           wchar LinkTarget[NM];
           CharToWide(LinkTargetA,LinkTarget,ASIZE(LinkTarget));
@@ -406,6 +406,26 @@ void ListFileHeader(Archive &Arc,FileHeader &hd,bool &TitleShown,bool Verbose,bo
   mprintf(L"%ls",Name);
 }
 
+/*
+void ListSymLink(Archive &Arc)
+{
+  if (Arc.FileHead.HSType==HSYS_UNIX && (Arc.FileHead.FileAttr & 0xF000)==0xA000)
+    if (Arc.FileHead.Encrypted)
+    {
+      // Link data are encrypted. We would need to ask for password
+      // and initialize decryption routine to display the link target.
+      mprintf(L"\n%22ls %ls",L"-->",L"*<-?->");
+    }
+    else
+    {
+      char FileName[NM];
+      uint DataSize=(uint)Min(Arc.FileHead.PackSize,sizeof(FileName)-1);
+      Arc.Read(FileName,DataSize);
+      FileName[DataSize]=0;
+      mprintf(L"\n%22ls %ls",L"-->",GetWide(FileName));
+    }
+}
+*/
 
 void ListFileAttr(uint A,HOST_SYSTEM_TYPE HostType,wchar *AttrStr,size_t AttrSize)
 {

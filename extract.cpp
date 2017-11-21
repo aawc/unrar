@@ -149,7 +149,7 @@ EXTRACT_ARC_CODE CmdExtract::ExtractArchive()
   }
 #endif
 
-  uint64 VolumeSetSize=0; // Total size of volumes after the current volume.
+  int64 VolumeSetSize=0; // Total size of volumes after the current volume.
 
   if (Arc.Volume)
   {
@@ -226,18 +226,6 @@ EXTRACT_ARC_CODE CmdExtract::ExtractArchive()
 
 bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
 {
-  // We can get negative sizes in corrupt archive and it is unacceptable
-  // for size comparisons in CmdExtract::UnstoreFile and ComprDataIO::UnpRead,
-  // where we cast sizes to size_t and can exceed another read or available
-  // size. We could fix it when reading an archive. But we prefer to do it
-  // here, because this function is called directly in unrar.dll, so we fix
-  // bad parameters passed to dll. Also we want to see real negative sizes
-  // in the listing of corrupt archive.
-//  if (Arc.FileHead.PackSize<0)
-//    Arc.FileHead.PackSize=0;
-  if (Arc.FileHead.UnpSize<0)
-    Arc.FileHead.UnpSize=0;
-
   wchar Command=Cmd->Command[0];
   if (HeaderSize==0)
     if (DataIO.UnpVolume)
@@ -256,6 +244,7 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
     }
     else
       return false;
+
   HEADER_TYPE HeaderType=Arc.GetHeaderType();
   if (HeaderType!=HEAD_FILE)
   {
@@ -284,6 +273,19 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
     return true;
   }
   PrevProcessed=false;
+
+  // We can get negative sizes in corrupt archive and it is unacceptable
+  // for size comparisons in ComprDataIO::UnpRead, where we cast sizes
+  // to size_t and can exceed another read or available size. We could fix it
+  // when reading an archive. But we prefer to do it here, because this
+  // function is called directly in unrar.dll, so we fix bad parameters
+  // passed to dll. Also we want to see real negative sizes in the listing
+  // of corrupt archive. To prevent uninitialized data access perform
+  // these checks after rejecting zero length and non-file headers above.
+  if (Arc.FileHead.PackSize<0)
+    Arc.FileHead.PackSize=0;
+  if (Arc.FileHead.UnpSize<0)
+    Arc.FileHead.UnpSize=0;
 
   if (!Cmd->Recurse && MatchedArgs>=Cmd->FileArgs.ItemsCount() && AllMatchesExact)
     return false;
@@ -782,15 +784,17 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
 void CmdExtract::UnstoreFile(ComprDataIO &DataIO,int64 DestUnpSize)
 {
   Array<byte> Buffer(File::CopyBufferSize());
-  while (1)
+  while (true)
   {
-    uint Code=DataIO.UnpRead(&Buffer[0],Buffer.Size());
-    if (Code==0 || (int)Code==-1)
+    int ReadSize=DataIO.UnpRead(&Buffer[0],Buffer.Size());
+    if (ReadSize<=0)
       break;
-    Code=Code<DestUnpSize ? Code:(uint)DestUnpSize;
-    DataIO.UnpWrite(&Buffer[0],Code);
-    if (DestUnpSize>=0)
-      DestUnpSize-=Code;
+    int WriteSize=ReadSize<DestUnpSize ? ReadSize:(int)DestUnpSize;
+    if (WriteSize>0)
+    {
+      DataIO.UnpWrite(&Buffer[0],WriteSize);
+      DestUnpSize-=WriteSize;
+    }
   }
 }
 
@@ -811,6 +815,7 @@ bool CmdExtract::ExtractFileCopy(File &New,wchar *ArcName,wchar *NameNew,wchar *
   }
 
   Array<char> Buffer(0x100000);
+  int64 CopySize=0;
 
   while (true)
   {
@@ -819,6 +824,7 @@ bool CmdExtract::ExtractFileCopy(File &New,wchar *ArcName,wchar *NameNew,wchar *
     if (ReadSize==0)
       break;
     New.Write(&Buffer[0],ReadSize);
+    CopySize+=ReadSize;
   }
 
   return true;
