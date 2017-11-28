@@ -1,5 +1,7 @@
 #include "rar.hpp"
 
+// this is a test comment that will be removed soon.
+
 #if !defined(RARDLL)
 int main(int argc, char *argv[])
 {
