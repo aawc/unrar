@@ -35,6 +35,8 @@ HANDLE PASCAL RAROpenArchiveEx(struct RAROpenArchiveDataEx *r)
   DataSet *Data=NULL;
   try
   {
+    ErrHandler.Clean();
+
     r->OpenResult=0;
     Data=new DataSet;
     Data->Cmd.DllError=0;

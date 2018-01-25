@@ -101,7 +101,10 @@ void QuickOpen::Load(uint64 BlockPos)
                          Arc->SubHead.HashKey,Arc->SubHead.PswCheck);
     else
 #endif
+    {
+      Loaded=false;
       return;
+    }
   }
 
   RawDataPos=0;
