@@ -34,8 +34,6 @@ Archive::Archive(RAROptions *InitCmd)
   CurBlockPos=0;
   NextBlockPos=0;
 
-  RecoverySize=-1;
-  RecoveryPercent=-1;
 
   memset(&MainHead,0,sizeof(MainHead));
   memset(&CryptHead,0,sizeof(CryptHead));

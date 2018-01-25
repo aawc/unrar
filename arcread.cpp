@@ -264,6 +264,11 @@ size_t Archive::ReadHeader15()
 
         uint FileTime=Raw.Get4();
         hd->UnpVer=Raw.Get1();
+
+        // RAR15 did not use the special dictionary size to mark dirs.
+        if (hd->UnpVer<20 && (hd->FileAttr & 0x10)!=0)
+          hd->Dir=true;
+
         hd->Method=Raw.Get1()-0x30;
         size_t NameSize=Raw.Get2();
         hd->FileAttr=Raw.Get4();
@@ -333,7 +338,7 @@ size_t Archive::ReadHeader15()
             size_t Length=strlen(FileName);
             Length++;
             if (ReadNameSize>Length)
-              NameCoder.Decode(FileName,(byte *)FileName+Length,
+              NameCoder.Decode(FileName,ReadNameSize,(byte *)FileName+Length,
                                ReadNameSize-Length,hd->FileName,
                                ASIZE(hd->FileName));
           }
@@ -361,17 +366,7 @@ size_t Archive::ReadHeader15()
             // They are stored after the file name and before salt.
             hd->SubData.Alloc(DataSize);
             Raw.GetB(&hd->SubData[0],DataSize);
-            if (hd->CmpName(SUBHEAD_TYPE_RR))
-            {
-              byte *D=&hd->SubData[8];
-              RecoverySize=D[0]+((uint)D[1]<<8)+((uint)D[2]<<16)+((uint)D[3]<<24);
-              RecoverySize*=512; // Sectors to size.
-              int64 CurPos=Tell();
-              RecoveryPercent=ToPercent(RecoverySize,CurPos);
-              // Round fractional percent exceeding .5 to upper value.
-              if (ToPercent(RecoverySize+CurPos/200,CurPos)>RecoveryPercent)
-                RecoveryPercent++;
-            }
+
           }
 
           if (hd->CmpName(SUBHEAD_TYPE_CMT))
@@ -475,7 +470,6 @@ size_t Archive::ReadHeader15()
       ProtectHead.TotalBlocks=Raw.Get4();
       Raw.GetB(ProtectHead.Mark,8);
       NextBlockPos+=ProtectHead.DataSize;
-      RecoverySize=ProtectHead.RecSectors*512;
       break;
     case HEAD3_OLDSERVICE:
       *(BaseBlock *)&SubBlockHead=ShortBlock;
@@ -1227,6 +1221,7 @@ size_t Archive::ReadHeader14()
 
     FileHead.PackSize=FileHead.DataSize;
     FileHead.WinSize=0x10000;
+    FileHead.Dir=(FileHead.FileAttr & 0x10)!=0;
 
     FileHead.HostOS=HOST_MSDOS;
     FileHead.HSType=HSYS_WINDOWS;
@@ -1335,8 +1330,6 @@ void Archive::ConvertAttributes()
 
 void Archive::ConvertFileHeader(FileHeader *hd)
 {
-  if (Format==RARFMT15 && hd->UnpVer<20 && (hd->FileAttr & 0x10))
-    hd->Dir=true;
   if (hd->HSType==HSYS_UNKNOWN)
     if (hd->Dir)
       hd->FileAttr=0x10;

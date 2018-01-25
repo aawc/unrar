@@ -45,8 +45,6 @@ class Archive:public File
     bool DummyCmd;
     RAROptions *Cmd;
 
-    int64 RecoverySize;
-    int RecoveryPercent;
 
     RarTime LatestTime;
     int LastReadBlock;
