@@ -449,19 +449,6 @@ size_t Archive::ReadHeader15()
       CommHead.Method=Raw.Get1();
       CommHead.CommCRC=Raw.Get2();
       break;
-    case HEAD3_SIGN:
-      *(BaseBlock *)&SignHead=ShortBlock;
-      SignHead.CreationTime=Raw.Get4();
-      SignHead.ArcNameSize=Raw.Get2();
-      SignHead.UserNameSize=Raw.Get2();
-      break;
-    case HEAD3_AV:
-      *(BaseBlock *)&AVHead=ShortBlock;
-      AVHead.UnpVer=Raw.Get1();
-      AVHead.Method=Raw.Get1();
-      AVHead.AVVer=Raw.Get1();
-      AVHead.AVInfoCRC=Raw.Get4();
-      break;
     case HEAD3_PROTECT:
       *(BaseBlock *)&ProtectHead=ShortBlock;
       ProtectHead.DataSize=Raw.Get4();
@@ -471,7 +458,7 @@ size_t Archive::ReadHeader15()
       Raw.GetB(ProtectHead.Mark,8);
       NextBlockPos+=ProtectHead.DataSize;
       break;
-    case HEAD3_OLDSERVICE:
+    case HEAD3_OLDSERVICE: // RAR 2.9 and earlier.
       *(BaseBlock *)&SubBlockHead=ShortBlock;
       SubBlockHead.DataSize=Raw.Get4();
       NextBlockPos+=SubBlockHead.DataSize;
@@ -492,13 +479,6 @@ size_t Archive::ReadHeader15()
           UOHead.OwnerName[UOHead.OwnerNameSize]=0;
           UOHead.GroupName[UOHead.GroupNameSize]=0;
           break;
-        case MAC_HEAD:
-          *(SubBlockHeader *)&MACHead=SubBlockHead;
-          MACHead.fileType=Raw.Get4();
-          MACHead.fileCreator=Raw.Get4();
-          break;
-        case EA_HEAD:
-        case BEEA_HEAD:
         case NTACL_HEAD:
           *(SubBlockHeader *)&EAHead=SubBlockHead;
           EAHead.UnpSize=Raw.Get4();
@@ -920,11 +900,10 @@ void Archive::RequestArcPassword()
       ErrHandler.Exit(RARX_USERBREAK);
     }
 #else
-    if (!uiGetPassword(UIPASSWORD_ARCHIVE,FileName,&Cmd->Password) ||
-        !Cmd->Password.IsSet())
+    if (!uiGetPassword(UIPASSWORD_ARCHIVE,FileName,&Cmd->Password))
     {
       Close();
-      uiMsg(UIERROR_INCERRCOUNT);
+      uiMsg(UIERROR_INCERRCOUNT); // Prevent archive deleting if delete after extraction is on.
       ErrHandler.Exit(RARX_USERBREAK);
     }
 #endif
@@ -1186,6 +1165,8 @@ size_t Archive::ReadHeader14()
     byte Mark[4];
     Raw.GetB(Mark,4);
     uint HeadSize=Raw.Get2();
+    if (HeadSize<7)
+      return false;
     byte Flags=Raw.Get1();
     NextBlockPos=CurBlockPos+HeadSize;
     CurHeaderType=HEAD_MAIN;
@@ -1207,6 +1188,8 @@ size_t Archive::ReadHeader14()
     FileHead.FileHash.Type=HASH_RAR14;
     FileHead.FileHash.CRC32=Raw.Get2();
     FileHead.HeadSize=Raw.Get2();
+    if (FileHead.HeadSize<21)
+      return false;
     uint FileTime=Raw.Get4();
     FileHead.FileAttr=Raw.Get1();
     FileHead.Flags=Raw.Get1()|LONG_BLOCK;
