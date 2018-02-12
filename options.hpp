@@ -95,18 +95,6 @@ class RAROptions
     QOPEN_MODE QOpenMode;
 #endif
 
-    bool ArcInMem;
-#ifdef USE_ARCMEM
-    void SetArcInMem(byte *Data,size_t Size)
-    {
-      ArcMemData=Data;
-      ArcMemSize=Size;
-      ArcInMem=Data!=NULL && Size>0;
-    }
-    byte *ArcMemData;
-    size_t ArcMemSize;
-#endif
-
     bool ConfigDisabled; // Switch -cfg-.
     wchar ExtrPath[NM];
     wchar CommentFile[NM];

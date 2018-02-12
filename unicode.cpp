@@ -544,7 +544,7 @@ int atoiw(const wchar *s)
 int64 atoilw(const wchar *s)
 {
   bool sign=false;
-  if (*s=='-')
+  if (*s=='-') // We do use signed integers here, for example, in GUI SFX.
   {
     s++;
     sign=true;

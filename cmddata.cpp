@@ -1249,7 +1249,7 @@ void CommandData::ProcessCommand()
       wcsncpyz(ArcName,Name,ASIZE(ArcName));
   }
 
-  if (wcschr(L"AFUMD",*Command)==NULL && !ArcInMem)
+  if (wcschr(L"AFUMD",*Command)==NULL)
   {
     if (GenerateArcName)
       GenerateArchiveName(ArcName,ASIZE(ArcName),GenerateMask,false);
