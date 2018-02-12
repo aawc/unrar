@@ -299,7 +299,7 @@ size_t WideToUtfSize(const wchar *Src)
       if (*Src<0x800)
         Size+=2;
       else
-        if (*Src<0x10000)
+        if ((uint)*Src<0x10000) //(uint) to avoid "always true" warning for 16-bit wchar_t in some compilers.
         {
           if (Src[0]>=0xd800 && Src[0]<=0xdbff && Src[1]>=0xdc00 && Src[1]<=0xdfff)
           {
@@ -310,7 +310,7 @@ size_t WideToUtfSize(const wchar *Src)
             Size+=3;
         }
         else
-          if (*Src<0x200000)
+          if ((uint)*Src<0x200000) //(uint) to avoid "always true" warning for 16-bit wchar_t in some compilers.
             Size+=4;
   return Size+1; // Include terminating zero.
 }
