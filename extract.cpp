@@ -249,7 +249,7 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
   if (HeaderType!=HEAD_FILE)
   {
 #ifndef SFX_MODULE
-    if (HeaderType==HEAD3_OLDSERVICE && PrevProcessed)
+    if (Arc.Format==RARFMT15 && HeaderType==HEAD3_OLDSERVICE && PrevProcessed)
       SetExtraInfo20(Cmd,Arc,DestFileName);
 #endif
     if (HeaderType==HEAD_SERVICE && PrevProcessed)
@@ -429,7 +429,7 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
       return !Arc.Solid; // Can try extracting next file only in non-solid archive.
     }
 
-    while (true) // Repeat the password prompt for wrong passwords.
+    while (true) // Repeat the password prompt for wrong and empty passwords.
     {
       if (Arc.FileHead.Encrypted)
       {
@@ -447,20 +447,7 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
           return false;
         }
 #endif
-        // Skip only the current encrypted file if empty password is entered.
-        // Actually our "cancel" code above intercepts empty passwords too now,
-        // so we keep the code below just in case we'll decide process empty
-        // and cancelled passwords differently sometimes.
-        if (!Cmd->Password.IsSet())
-        {
-          ErrHandler.SetErrorCode(RARX_WARNING);
-#ifdef RARDLL
-          Cmd->DllError=ERAR_MISSING_PASSWORD;
-#endif
-          ExtrFile=false;
-        }
       }
-
 
       // Set a password before creating the file, so we can skip creating
       // in case of wrong password.
@@ -481,12 +468,17 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
           memcmp(Arc.FileHead.PswCheck,PswCheck,SIZE_PSWCHECK)!=0 &&
           !Arc.BrokenHeader)
       {
-        // This message is used by Android GUI and Windows GUI and SFX to
-        // reset cached passwords. Update appropriate code if changed.
-        uiMsg(UIWAIT_BADPSW,ArcFileName);
-
-        if (!PasswordAll) // If entered manually and not through -p<pwd>.
+        if (PasswordAll) // For -p<pwd> or Ctrl+P.
         {
+          // This message is used by Android GUI to reset cached passwords.
+          // Update appropriate code if changed.
+          uiMsg(UIERROR_BADPSW,ArcFileName);
+        }
+        else // For passwords entered manually.
+        {
+          // This message is used by Android GUI and Windows GUI and SFX to
+          // reset cached passwords. Update appropriate code if changed.
+          uiMsg(UIWAIT_BADPSW,ArcFileName);
           Cmd->Password.Clean();
           continue; // Request a password again.
         }
@@ -961,12 +953,10 @@ bool CmdExtract::ExtrGetPassword(Archive &Arc,const wchar *ArcFileName)
 {
   if (!Cmd->Password.IsSet())
   {
-    if (!uiGetPassword(UIPASSWORD_FILE,ArcFileName,&Cmd->Password) || !Cmd->Password.IsSet())
+    if (!uiGetPassword(UIPASSWORD_FILE,ArcFileName,&Cmd->Password)/* || !Cmd->Password.IsSet()*/)
     {
-      // Suppress "test is ok" message in GUI if user entered
-      // an empty password or cancelled a password prompt.
+      // Suppress "test is ok" message if user cancelled the password prompt.
       uiMsg(UIERROR_INCERRCOUNT);
-
       return false;
     }
     Cmd->ManualPassword=true;

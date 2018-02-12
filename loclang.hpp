@@ -311,8 +311,6 @@
 #define   MErrLnkRead        L"\nWARNING: Cannot read symbolic link %s"
 #define   MSymLinkExists     L"\nWARNING: Symbolic link %s already exists"
 #define   MAskRetryCreate    L"\nCannot create %s. Retry ?"
-#define   MListMACHead1      L"\n Mac OS file type:  %c%c%c%c  ; "
-#define   MListMACHead2      L"file creator:  %c%c%c%c\n"
 #define   MDataBadCRC        L"\n%-20s : packed data checksum error in volume %s"
 #define   MFileRO            L"\n%s is read-only"
 #define   MACLGetError       L"\nWARNING: Cannot get %s security data\n"

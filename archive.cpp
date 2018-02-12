@@ -194,6 +194,7 @@ bool Archive::IsArchive(bool EnableBroken)
 #endif
 
   bool HeadersLeft; // Any headers left to read.
+  bool StartFound=false; // Main or encryption headers found.
   // Skip the archive encryption header if any and read the main header.
   while ((HeadersLeft=(ReadHeader()!=0))==true) // Additional parentheses to silence Clang.
   {
@@ -202,7 +203,8 @@ bool Archive::IsArchive(bool EnableBroken)
     HEADER_TYPE Type=GetHeaderType();
     // In RAR 5.0 we need to quit after reading HEAD_CRYPT if we wish to
     // avoid the password prompt.
-    if (Type==HEAD_MAIN || SilentOpen && Type==HEAD_CRYPT)
+    StartFound=Type==HEAD_MAIN || SilentOpen && Type==HEAD_CRYPT;
+    if (StartFound)
       break;
   }
 
@@ -212,7 +214,7 @@ bool Archive::IsArchive(bool EnableBroken)
   if (FailedHeaderDecryption && !EnableBroken)
     return false;
 
-  if (BrokenHeader) // Main archive header is corrupt.
+  if (BrokenHeader || !StartFound) // Main archive header is corrupt or missing.
   {
     uiMsg(UIERROR_MHEADERBROKEN,FileName);
     if (!EnableBroken)
