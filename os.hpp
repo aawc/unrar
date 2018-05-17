@@ -22,7 +22,10 @@
 
 #ifdef _WIN_ALL
 
-#define STRICT
+#ifndef STRICT
+#define STRICT 1
+#endif
+
 #define UNICODE
 #undef WINVER
 #undef _WIN32_WINNT
