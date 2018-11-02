@@ -59,7 +59,11 @@ void CmdExtract::DoExtract()
   {
     if (!PasswordCancelled)
       uiMsg(UIERROR_NOFILESTOEXTRACT,ArcName);
-    ErrHandler.SetErrorCode(RARX_NOFILES);
+
+    // Other error codes may explain a reason of "no files extracted" clearer,
+    // so set it only if no other errors found (wrong mask set by user).
+    if (ErrHandler.GetErrorCode()==RARX_SUCCESS)
+      ErrHandler.SetErrorCode(RARX_NOFILES);
   }
   else
     if (!Cmd->DisableDone)
@@ -83,7 +87,7 @@ void CmdExtract::ExtractArchiveInit(Archive &Arc)
   FirstFile=true;
 #endif
 
-  PasswordAll=(Cmd->Password.IsSet());
+  GlobalPassword=Cmd->Password.IsSet();
 
   DataIO.UnpVolume=false;
 
@@ -157,7 +161,7 @@ EXTRACT_ARC_CODE CmdExtract::ExtractArchive()
     // This size is necessary to display the correct total progress indicator.
 
     wchar NextName[NM];
-    wcscpy(NextName,Arc.FileName);
+    wcsncpyz(NextName,Arc.FileName,ASIZE(NextName));
 
     while (true)
     {
@@ -319,6 +323,7 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
 
     if (wcsicomp(ArcName,CurVolName)!=0 && FileExist(ArcName))
     {
+      wcsncpyz(Cmd->ArcName,ArcName,ASIZE(ArcName)); // For GUI "Delete archive after extraction".
       // If first volume name does not match the current name and if such
       // volume name really exists, let's unpack from this first volume.
       Repeat=true;
@@ -468,7 +473,7 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
           memcmp(Arc.FileHead.PswCheck,PswCheck,SIZE_PSWCHECK)!=0 &&
           !Arc.BrokenHeader)
       {
-        if (PasswordAll) // For -p<pwd> or Ctrl+P.
+        if (GlobalPassword) // For -p<pwd> or Ctrl+P.
         {
           // This message is used by Android GUI to reset cached passwords.
           // Update appropriate code if changed.
@@ -480,7 +485,12 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
           // reset cached passwords. Update appropriate code if changed.
           uiMsg(UIWAIT_BADPSW,ArcFileName);
           Cmd->Password.Clean();
+
+          // Avoid new requests for unrar.dll to prevent the infinite loop
+          // if app always returns the same password.
+#ifndef RARDLL
           continue; // Request a password again.
+#endif
         }
 #ifdef RARDLL
         // If we already have ERAR_EOPEN as result of missing volume,
@@ -963,7 +973,7 @@ bool CmdExtract::ExtrGetPassword(Archive &Arc,const wchar *ArcFileName)
   }
 #if !defined(SILENT)
   else
-    if (!PasswordAll && !Arc.FileHead.Solid)
+    if (!GlobalPassword && !Arc.FileHead.Solid)
     {
       eprintf(St(MUseCurPsw),ArcFileName);
       switch(Cmd->AllYes ? 1 : Ask(St(MYesNoAll)))
@@ -975,7 +985,7 @@ bool CmdExtract::ExtrGetPassword(Archive &Arc,const wchar *ArcFileName)
             return false;
           break;
         case 3:
-          PasswordAll=true;
+          GlobalPassword=true;
           break;
       }
     }
