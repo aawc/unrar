@@ -12,11 +12,7 @@ enum PATH_EXCL_MODE {
   EXCL_SKIPWHOLEPATH,  // -ep  (exclude the path completely)
   EXCL_BASEPATH,       // -ep1 (exclude the base part of path)
   EXCL_SAVEFULLPATH,   // -ep2 (the full path without the disk letter)
-  EXCL_ABSPATH,        // -ep3 (the full path with the disk letter)
-
-  EXCL_SKIPABSPATH     // Works as EXCL_BASEPATH for fully qualified paths
-                       // and as EXCL_UNCHANGED for relative paths.
-                       // Used by WinRAR GUI only.
+  EXCL_ABSPATH         // -ep3 (the full path with the disk letter)
 };
 
 enum {SOLID_NONE=0,SOLID_NORMAL=1,SOLID_COUNT=2,SOLID_FILEEXT=4,
@@ -64,7 +60,8 @@ enum SAVECOPY_MODE {
 };
 
 enum POWER_MODE {
-  POWERMODE_KEEP=0,POWERMODE_OFF,POWERMODE_HIBERNATE,POWERMODE_SLEEP
+  POWERMODE_KEEP=0,POWERMODE_OFF,POWERMODE_HIBERNATE,POWERMODE_SLEEP,
+  POWERMODE_RESTART
 };
 
 struct FilterMode

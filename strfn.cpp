@@ -125,7 +125,8 @@ unsigned char loctolower(unsigned char ch)
 {
 #if defined(_WIN_ALL)
   // Convert to LPARAM first to avoid a warning in 64 bit mode.
-  return (int)(LPARAM)CharLowerA((LPSTR)ch);
+  // Convert to uintptr_t to avoid Clang/win error: cast to 'char *' from smaller integer type 'unsigned char' [-Werror,-Wint-to-pointer-cast]
+  return (int)(LPARAM)CharLowerA((LPSTR)(uintptr_t)ch);
 #else
   return tolower(ch);
 #endif
@@ -136,7 +137,8 @@ unsigned char loctoupper(unsigned char ch)
 {
 #if defined(_WIN_ALL)
   // Convert to LPARAM first to avoid a warning in 64 bit mode.
-  return (int)(LPARAM)CharUpperA((LPSTR)ch);
+  // Convert to uintptr_t to avoid Clang/win error: cast to 'char *' from smaller integer type 'unsigned char' [-Werror,-Wint-to-pointer-cast]
+  return (int)(LPARAM)CharUpperA((LPSTR)(uintptr_t)ch);
 #else
   return toupper(ch);
 #endif
@@ -432,7 +434,7 @@ const wchar* GetCmdParam(const wchar *CmdLine,wchar *Param,size_t MaxSize)
 }
 
 
-#ifndef SILENT
+#ifndef RARDLL
 // For compatibility with existing translations we use %s to print Unicode
 // strings in format strings and convert them to %ls here. %s could work
 // without such conversion in Windows, but not in Unix wprintf.
