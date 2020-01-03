@@ -16,7 +16,7 @@ FILETYPE VFT_APP
       VALUE "FileDescription", "RAR decompression library\0"
       VALUE "FileVersion", "5.71.1\0"
       VALUE "ProductVersion", "5.71.1\0"
-      VALUE "LegalCopyright", "Copyright © Alexander Roshal 1993-2019\0"
+      VALUE "LegalCopyright", "Copyright ï¿½ Alexander Roshal 1993-2019\0"
       VALUE "OriginalFilename", "Unrar.dll\0"
     }
   }
