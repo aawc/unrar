@@ -46,12 +46,17 @@ class CryptLoader
       }
     }
 
+    static CryptLoader& GetInstance()
+    {
+      static CryptLoader cryptLoader;
+      return cryptLoader;
+    }
+
     CRYPTPROTECTMEMORY pCryptProtectMemory;
     CRYPTUNPROTECTMEMORY pCryptUnprotectMemory;
 };
 
 // We need to call FreeLibrary when RAR is exiting.
-CryptLoader GlobalCryptLoader;
 #endif
 
 SecPassword::SecPassword()
@@ -169,15 +174,15 @@ void SecHideData(void *Data,size_t DataSize,bool Encode,bool CrossProcess)
   // increases data size not allowing in place conversion.
 #if defined(_WIN_ALL)
   // Try to utilize the secure Crypt[Un]ProtectMemory if possible.
-  if (GlobalCryptLoader.pCryptProtectMemory==NULL)
-    GlobalCryptLoader.Load();
+  if (CryptLoader::GetInstance().pCryptProtectMemory==NULL)
+    CryptLoader::GetInstance().Load();
   size_t Aligned=DataSize-DataSize%CRYPTPROTECTMEMORY_BLOCK_SIZE;
   DWORD Flags=CrossProcess ? CRYPTPROTECTMEMORY_CROSS_PROCESS : CRYPTPROTECTMEMORY_SAME_PROCESS;
   if (Encode)
   {
-    if (GlobalCryptLoader.pCryptProtectMemory!=NULL)
+    if (CryptLoader::GetInstance().pCryptProtectMemory!=NULL)
     {
-      if (!GlobalCryptLoader.pCryptProtectMemory(Data,DWORD(Aligned),Flags))
+      if (!CryptLoader::GetInstance().pCryptProtectMemory(Data,DWORD(Aligned),Flags))
       {
         ErrHandler.GeneralErrMsg(L"CryptProtectMemory failed");
         ErrHandler.SysErrMsg();
@@ -188,9 +193,9 @@ void SecHideData(void *Data,size_t DataSize,bool Encode,bool CrossProcess)
   }
   else
   {
-    if (GlobalCryptLoader.pCryptUnprotectMemory!=NULL)
+    if (CryptLoader::GetInstance().pCryptUnprotectMemory!=NULL)
     {
-      if (!GlobalCryptLoader.pCryptUnprotectMemory(Data,DWORD(Aligned),Flags))
+      if (!CryptLoader::GetInstance().pCryptUnprotectMemory(Data,DWORD(Aligned),Flags))
       {
         ErrHandler.GeneralErrMsg(L"CryptUnprotectMemory failed");
         ErrHandler.SysErrMsg();

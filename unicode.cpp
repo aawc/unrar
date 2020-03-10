@@ -586,6 +586,12 @@ void SupportDBCS::Init()
     IsLeadByte[I]=IsDBCSLeadByte(I)!=0;
 }
 
+// static
+SupportDBCS& SupportDBCS::GetInstance()
+{
+  static SupportDBCS supportDBCS;
+  return supportDBCS;
+}
 
 char* SupportDBCS::charnext(const char *s)
 {
