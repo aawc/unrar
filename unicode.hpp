@@ -45,11 +45,11 @@ class SupportDBCS
     bool DBCSMode;
 };
 
-inline char* charnext(const char *s) {return (char *)(SupportDBCS::GetInstance().DBCSMode ? SupportDBCS::GetInstance().charnext(s):s+1);}
-inline size_t strlend(const char *s) {return (uint)(SupportDBCS::GetInstance().DBCSMode ? SupportDBCS::GetInstance().strlend(s):strlen(s));}
-inline char* strchrd(const char *s, int c) {return (char *)(SupportDBCS::GetInstance().DBCSMode ? SupportDBCS::GetInstance().strchrd(s,c):strchr(s,c));}
-inline char* strrchrd(const char *s, int c) {return (char *)(SupportDBCS::GetInstance().DBCSMode ? SupportDBCS::GetInstance().strrchrd(s,c):strrchr(s,c));}
-inline void copychrd(char *dest,const char *src) {if (SupportDBCS::GetInstance().DBCSMode) SupportDBCS::GetInstance().copychrd(dest,src); else *dest=*src;}
+inline char* charnext(const char *s) {return (char *)(IsDBCSMode() ? SupportDBCS::GetInstance().charnext(s):s+1);}
+inline size_t strlend(const char *s) {return (uint)(IsDBCSMode() ? SupportDBCS::GetInstance().strlend(s):strlen(s));}
+inline char* strchrd(const char *s, int c) {return (char *)(IsDBCSMode() ? SupportDBCS::GetInstance().strchrd(s,c):strchr(s,c));}
+inline char* strrchrd(const char *s, int c) {return (char *)(IsDBCSMode() ? SupportDBCS::GetInstance().strrchrd(s,c):strrchr(s,c));}
+inline void copychrd(char *dest,const char *src) {if (IsDBCSMode()) SupportDBCS::GetInstance().copychrd(dest,src); else *dest=*src;}
 inline bool IsDBCSMode() {return(SupportDBCS::GetInstance().DBCSMode);}
 inline void InitDBCS() {SupportDBCS::GetInstance().Init();}
 
