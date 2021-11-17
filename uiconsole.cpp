@@ -1,4 +1,4 @@
-static bool AnyMessageDisplayed=0; // For console -idn switch.
+static bool AnyMessageDisplayed=false; // For console -idn switch.
 
 // Purely user interface function. Gets and returns user input.
 UIASKREP_RESULT uiAskReplace(wchar *Name,size_t MaxNameSize,int64 FileSize,RarTime *FileTime,uint Flags)
@@ -71,7 +71,10 @@ bool uiStartFileExtract(const wchar *FileName,bool Extract,bool Test,bool Skip)
 
 void uiExtractProgress(int64 CurFileSize,int64 TotalFileSize,int64 CurSize,int64 TotalSize)
 {
-  int CurPercent=ToPercent(CurSize,TotalSize);
+  // We set the total size to 0 to update only the current progress and keep
+  // the total progress intact in WinRAR. Unlike WinRAR, console RAR has only
+  // the total progress and updates it with current values in such case.
+  int CurPercent=TotalSize!=0 ? ToPercent(CurSize,TotalSize) : ToPercent(CurFileSize,TotalFileSize);
   mprintf(L"\b\b\b\b%3d%%",CurPercent);
 }
 
@@ -85,7 +88,18 @@ void uiProcessProgress(const char *Command,int64 CurSize,int64 TotalSize)
 
 void uiMsgStore::Msg()
 {
-  AnyMessageDisplayed=true;
+  // When creating volumes, AnyMessageDisplayed must be reset for UIEVENT_NEWARCHIVE,
+  // so it ignores this and all earlier messages like UIEVENT_PROTECTEND
+  // and UIEVENT_PROTECTEND, because they precede "Creating archive" message
+  // and do not interfere with -idn and file names. If we do not ignore them,
+  // uiEolAfterMsg() in uiStartFileAddit() can cause unneeded carriage return
+  // in archiving percent after creating a new volume with -v -idn (and -rr
+  // for UIEVENT_PROTECT*) switches. AnyMessageDisplayed is set for messages
+  // after UIEVENT_NEWARCHIVE, so archiving percent with -idn is moved to
+  // next line and does not delete their last characters.
+  // Similarly we ignore UIEVENT_RRTESTINGEND for volumes, because it is issued
+  // before "Testing archive" and would add an excessive \n otherwise.
+  AnyMessageDisplayed=(Code!=UIEVENT_NEWARCHIVE && Code!=UIEVENT_RRTESTINGEND);
 
   switch(Code)
   {
@@ -236,6 +250,9 @@ void uiMsgStore::Msg()
       mprintf(L"\n"); // Needed when called from CmdExtract::ExtractCurrentFile.
       break;
 #ifndef SFX_MODULE
+    case UIERROR_OPFAILED:
+      Log(NULL,St(MOpFailed));
+      break;
     case UIERROR_NEWRARFORMAT:
       Log(Str[0],St(MNewRarFormat));
       break;
@@ -318,6 +335,13 @@ void uiMsgStore::Msg()
     case UIERROR_DIRNAMEEXISTS:
       Log(NULL,St(MDirNameExists));
       break;
+    case UIERROR_TRUNCPSW:
+      eprintf(St(MTruncPsw),Num[0]);
+      eprintf(L"\n");
+      break;
+    case UIERROR_ADJUSTVALUE:
+      Log(NULL,St(MAdjustValue),Str[0],Str[1]);
+      break;
 
 #ifndef SFX_MODULE
     case UIMSG_STRING:
@@ -357,6 +381,9 @@ void uiMsgStore::Msg()
     case UIMSG_FAT32SIZE:
       mprintf(St(MFAT32Size));
       mprintf(L"     "); // For progress percent.
+      break;
+    case UIMSG_SKIPENCARC:
+      Log(NULL,St(MSkipEncArc),Str[0]);
       break;
 
 
