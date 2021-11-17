@@ -603,4 +603,3 @@ char* SupportDBCS::charnext(const char *s)
 }
 #endif
 
-

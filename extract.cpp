@@ -783,6 +783,14 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
       // both target and link attributes if PrepareToDelete() changed them.
       bool SetAttrOnly=LinkEntry && Arc.FileHead.RedirType==FSREDIR_HARDLINK && LinkSuccess;
 
+      // If we successfully unpacked a hard link, we wish to set its file
+      // attributes. Hard link shares file metadata with link target,
+      // so we do not need to set link time or owner. But when we overwrite
+      // an existing link, we can call PrepareToDelete(), which affects
+      // link target attributes as well. So we set link attributes to restore
+      // both target and link attributes if PrepareToDelete() changed them.
+      bool SetAttrOnly=LinkEntry && Arc.FileHead.RedirType==FSREDIR_HARDLINK && LinkSuccess;
+
       if (!TestMode && (Command=='X' || Command=='E') &&
           (!LinkEntry || SetAttrOnly || Arc.FileHead.RedirType==FSREDIR_FILECOPY && LinkSuccess) && 
           (!BrokenFile || Cmd->KeepBroken))
@@ -1041,7 +1049,11 @@ bool CmdExtract::ExtrGetPassword(Archive &Arc,const wchar *ArcFileName)
     if (!uiGetPassword(UIPASSWORD_FILE,ArcFileName,&Cmd->Password)/* || !Cmd->Password.IsSet()*/)
     {
       // Suppress "test is ok" message if user cancelled the password prompt.
-      uiMsg(UIERROR_INCERRCOUNT);
+// 2019.03.23: If some archives are tested ok and prompt is cancelled for others,
+// do we really need to suppress "test is ok"? Also if we set an empty password
+// and "Use for all archives" in WinRAR Ctrl+P and skip some encrypted archives.
+// We commented out this UIERROR_INCERRCOUNT for now.
+//      uiMsg(UIERROR_INCERRCOUNT);
       return false;
     }
     Cmd->ManualPassword=true;
