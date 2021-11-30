@@ -82,7 +82,7 @@ void CmdExtract::DoExtract()
 
 void CmdExtract::ExtractArchiveInit(Archive &Arc)
 {
-  DataIO.UnpArcSize=Arc.FileLength();
+  DataIO.UnpArcSize=Arc.IsSeekable() ? Arc.FileLength() : 0;
 
   FileCount=0;
   MatchedArgs=0;
@@ -105,8 +105,22 @@ void CmdExtract::ExtractArchiveInit(Archive &Arc)
 EXTRACT_ARC_CODE CmdExtract::ExtractArchive()
 {
   Archive Arc(Cmd);
-  if (!Arc.WOpen(ArcName))
-    return EXTRACT_ARC_NEXT;
+  if (*Cmd->UseStdin!=0)
+  {
+    Arc.SetHandleType(FILE_HANDLESTD);
+#ifdef USE_QOPEN
+    Arc.SetProhibitQOpen(true);
+#endif
+  }
+  else
+  {
+#if defined(_WIN_ALL) && !defined(SFX_MODULE) // WinRAR GUI code also resets the cache.
+    if (*Cmd->Command=='T' || Cmd->Test)
+      ResetFileCache(ArcName); // Reset the file cache when testing an archive.
+#endif
+    if (!Arc.WOpen(ArcName))
+      return EXTRACT_ARC_NEXT;
+  }
 
   if (!Arc.IsArchive(true))
   {
@@ -403,6 +417,12 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
   FirstFile=false;
 #endif
 
+  if (Arc.FileHead.Encrypted && Cmd->SkipEncrypted)
+    if (Arc.Solid)
+      return false; // Abort the entire extraction for solid archive.
+    else
+      MatchFound=false; // Skip only the current file for non-solid archive.
+  
   if (MatchFound || (SkipSolid=Arc.Solid)!=0)
   {
     // First common call of uiStartFileExtract. It is done before overwrite
@@ -654,7 +674,7 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
           ExtrPrepareName(Arc,Arc.FileHead.RedirName,NameExisting,ASIZE(NameExisting));
           if (FileCreateMode && *NameExisting!=0) // *NameExisting can be 0 in case of excessive -ap switch.
             if (Type==FSREDIR_HARDLINK)
-              LinkSuccess=ExtractHardlink(DestFileName,NameExisting,ASIZE(NameExisting));
+              LinkSuccess=ExtractHardlink(Cmd,DestFileName,NameExisting,ASIZE(NameExisting));
             else
               LinkSuccess=ExtractFileCopy(CurFile,Arc.FileName,DestFileName,NameExisting,ASIZE(NameExisting));
         }
@@ -666,7 +686,7 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
           }
           else
           {
-            uiMsg(UIERROR_UNKNOWNEXTRA, Arc.FileName, DestFileName);
+            uiMsg(UIERROR_UNKNOWNEXTRA,Arc.FileName,DestFileName);
             LinkSuccess=false;
           }
           
@@ -747,7 +767,21 @@ bool CmdExtract::ExtractCurrentFile(Archive &Arc,size_t HeaderSize,bool &Repeat)
         }
       }
       else
-        mprintf(L"\b\b\b\b\b     ");
+      {
+        // We check SkipSolid to remove percent for skipped solid files only.
+        // We must not apply these \b to links with ShowChecksum==false
+        // and their possible error messages.
+        if (SkipSolid) 
+          mprintf(L"\b\b\b\b\b     ");
+      }
+
+      // If we successfully unpacked a hard link, we wish to set its file
+      // attributes. Hard link shares file metadata with link target,
+      // so we do not need to set link time or owner. But when we overwrite
+      // an existing link, we can call PrepareToDelete(), which affects
+      // link target attributes as well. So we set link attributes to restore
+      // both target and link attributes if PrepareToDelete() changed them.
+      bool SetAttrOnly=LinkEntry && Arc.FileHead.RedirType==FSREDIR_HARDLINK && LinkSuccess;
 
       // If we successfully unpacked a hard link, we wish to set its file
       // attributes. Hard link shares file metadata with link target,
@@ -882,6 +916,8 @@ void CmdExtract::ExtrPrepareName(Archive &Arc,const wchar *ArcFileName,wchar *De
      wchar LastChar=*PointToLastChar(Cmd->ExtrPath);
     // We need IsPathDiv check here to correctly handle Unix forward slash
     // in the end of destination path in Windows: rar x arc dest/
+    // so we call IsPathDiv first instead of just calling AddEndSlash,
+    // which checks for only one type of path separator.
     // IsDriveDiv is needed for current drive dir: rar x arc d:
     if (!IsPathDiv(LastChar) && !IsDriveDiv(LastChar))
     {
@@ -913,19 +949,13 @@ void CmdExtract::ExtrPrepareName(Archive &Arc,const wchar *ArcFileName,wchar *De
 #endif
 
 #ifndef SFX_MODULE
-  size_t ArcPathLength=wcslen(Cmd->ArcPath);
+  wchar *ArcPath=*Cmd->ExclArcPath!=0 ? Cmd->ExclArcPath:Cmd->ArcPath;
+  size_t ArcPathLength=wcslen(ArcPath);
   if (ArcPathLength>0)
   {
     size_t NameLength=wcslen(ArcFileName);
-
-    // Earlier we compared lengths only here, but then noticed a cosmetic bug
-    // in WinRAR. When extracting a file reference from subfolder with
-    // "Extract relative paths", so WinRAR sets ArcPath, if reference target
-    // is missing, error message removed ArcPath both from reference and target
-    // names. If target was stored in another folder, its name looked wrong.
-    if (NameLength>=ArcPathLength && 
-        wcsnicompc(Cmd->ArcPath,ArcFileName,ArcPathLength)==0 &&
-        (IsPathDiv(Cmd->ArcPath[ArcPathLength-1]) || 
+    if (NameLength>=ArcPathLength &&  wcsnicompc(ArcPath,ArcFileName,ArcPathLength)==0 &&
+        (IsPathDiv(ArcPath[ArcPathLength-1]) || 
          IsPathDiv(ArcFileName[ArcPathLength]) || ArcFileName[ArcPathLength]==0))
     {
       ArcFileName+=Min(ArcPathLength,NameLength);
@@ -958,7 +988,7 @@ void CmdExtract::ExtrPrepareName(Archive &Arc,const wchar *ArcFileName,wchar *De
   // Must do after Cmd->ArcPath processing above, so file name and arc path
   // trailing spaces are in sync.
   if (!Cmd->AllowIncompatNames)
-    MakeNameCompatible(DestName);
+    MakeNameCompatible(DestName,DestSize);
 #endif
 
   wchar DiskLetter=toupperw(DestName[0]);
@@ -1100,19 +1130,23 @@ void CmdExtract::ExtrCreateDir(Archive &Arc,const wchar *ArcFileName)
     }
     if (!DirExist)
     {
-      CreatePath(DestFileName,true);
+      CreatePath(DestFileName,true,Cmd->DisableNames);
       MDCode=MakeDir(DestFileName,!Cmd->IgnoreGeneralAttr,Arc.FileHead.FileAttr);
-      if (MDCode!=MKDIR_SUCCESS)
+      if (MDCode!=MKDIR_SUCCESS && !IsNameUsable(DestFileName))
       {
+        uiMsg(UIMSG_CORRECTINGNAME,Arc.FileName);
         wchar OrigName[ASIZE(DestFileName)];
         wcsncpyz(OrigName,DestFileName,ASIZE(OrigName));
         MakeNameUsable(DestFileName,true);
-        CreatePath(DestFileName,true);
-        MDCode=MakeDir(DestFileName,!Cmd->IgnoreGeneralAttr,Arc.FileHead.FileAttr);
 #ifndef SFX_MODULE
-        if (MDCode==MKDIR_SUCCESS)
-          uiMsg(UIERROR_RENAMING,Arc.FileName,OrigName,DestFileName);
+        uiMsg(UIERROR_RENAMING,Arc.FileName,OrigName,DestFileName);
 #endif
+        DirExist=FileExist(DestFileName) && IsDir(GetFileAttr(DestFileName));
+        if (!DirExist)
+        {
+          CreatePath(DestFileName,true,Cmd->DisableNames);
+          MDCode=MakeDir(DestFileName,!Cmd->IgnoreGeneralAttr,Arc.FileHead.FileAttr);
+        }
       }
     }
   }
@@ -1191,7 +1225,7 @@ bool CmdExtract::ExtrCreateFile(Archive &Arc,File &CurFile)
 
           MakeNameUsable(DestFileName,true);
 
-          CreatePath(DestFileName,true);
+          CreatePath(DestFileName,true,Cmd->DisableNames);
           if (FileCreate(Cmd,&CurFile,DestFileName,ASIZE(DestFileName),&UserReject,Arc.FileHead.UnpSize,&Arc.FileHead.mtime,true))
           {
 #ifndef SFX_MODULE
