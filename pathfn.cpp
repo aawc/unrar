@@ -768,18 +768,19 @@ static void GenArcName(wchar *ArcName,size_t MaxSize,const wchar *GenerateMask,u
   if (StartWeekDay%7>=4)
     CurWeek++;
 
-  char Field[10][6];
+  const int FieldItemSize = 6;
+  char Field[10][FieldItemSize];
 
-  sprintf(Field[0],"%04u",rlt.Year);
-  sprintf(Field[1],"%02u",rlt.Month);
-  sprintf(Field[2],"%02u",rlt.Day);
-  sprintf(Field[3],"%02u",rlt.Hour);
-  sprintf(Field[4],"%02u",rlt.Minute);
-  sprintf(Field[5],"%02u",rlt.Second);
-  sprintf(Field[6],"%02u",(uint)CurWeek);
-  sprintf(Field[7],"%u",(uint)WeekDay+1);
-  sprintf(Field[8],"%03u",rlt.yDay+1);
-  sprintf(Field[9],"%05u",ArcNumber);
+  snprintf(Field[0],FieldItemSize,"%04u",rlt.Year);
+  snprintf(Field[1],FieldItemSize,"%02u",rlt.Month);
+  snprintf(Field[2],FieldItemSize,"%02u",rlt.Day);
+  snprintf(Field[3],FieldItemSize,"%02u",rlt.Hour);
+  snprintf(Field[4],FieldItemSize,"%02u",rlt.Minute);
+  snprintf(Field[5],FieldItemSize,"%02u",rlt.Second);
+  snprintf(Field[6],FieldItemSize,"%02u",(uint)CurWeek);
+  snprintf(Field[7],FieldItemSize,"%u",(uint)WeekDay+1);
+  snprintf(Field[8],FieldItemSize,"%03u",rlt.yDay+1);
+  snprintf(Field[9],FieldItemSize,"%05u",ArcNumber);
 
   const wchar *MaskChars=L"YMDHISWAEN";
 
